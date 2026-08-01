@@ -6,7 +6,7 @@ import docx
 import pandas as pd
 
 # Set page config
-st.set_page_config(page_title="Professional OCR App", layout="wide")
+st.set_page_config(page_title="Advanced OCR SaaS", page_icon="📝", layout="wide")
 
 def get_ocr_space_key():
     """
@@ -14,7 +14,7 @@ def get_ocr_space_key():
     """
     if "OCR_SPACE_API_KEY" in st.secrets:
         return st.secrets["OCR_SPACE_API_KEY"]
-    st.error("OCR.space API key not found. Please configure Streamlit secrets with 'OCR_SPACE_API_KEY'.")
+    st.sidebar.error("OCR.space API key not found. Please configure Streamlit secrets with 'OCR_SPACE_API_KEY'.")
     return None
 
 def perform_ocr(image_bytes, api_key, language, is_table):
@@ -25,14 +25,11 @@ def perform_ocr(image_bytes, api_key, language, is_table):
     
     # We can send the image file directly
     files = {"file": ("image.jpg", image_bytes, "image/jpeg")}
-    # Engine 2 supports English and French well, but does not support Arabic.
-    # We must use Engine 1 for Arabic to avoid the language parameter error.
-    engine = 1 if language == "ara" else 2
     
     data = {
         "apikey": api_key,
         "language": language, 
-        "OCREngine": engine,
+        "OCREngine": 2, # Engine 2 is excellent for Western languages (English, French)
         "isTable": "true" if is_table else "false",
         "scale": "true",
         "detectOrientation": "true"
@@ -63,7 +60,7 @@ def perform_ocr(image_bytes, api_key, language, is_table):
 def preprocess_image(image_bytes):
     """
     Preprocess image by converting to grayscale and increasing contrast
-    to improve OCR accuracy, especially for cursive languages like Arabic.
+    to improve OCR accuracy.
     """
     image = Image.open(io.BytesIO(image_bytes))
     
@@ -72,7 +69,7 @@ def preprocess_image(image_bytes):
     
     # Increase contrast
     enhancer = ImageEnhance.Contrast(image)
-    image = enhancer.enhance(2.0) # You can adjust this factor
+    image = enhancer.enhance(2.0)
     
     # Save back to bytes
     img_byte_arr = io.BytesIO()
@@ -109,44 +106,48 @@ def create_excel_doc(text):
     return bio.getvalue()
 
 def main():
-    st.title("Professional OCR App")
-    st.markdown("Upload an image or take a photo to extract text using OCR.space API.")
+    # --- Header ---
+    st.title("📝 Advanced OCR & Text Extraction")
+    st.markdown("Welcome to the premium Optical Character Recognition (OCR) tool. Easily extract structured text from images and documents in English and French, and export them directly to Word or Excel.")
+    st.markdown("---")
 
     api_key = get_ocr_space_key()
     if not api_key:
         st.stop()
         
-    st.sidebar.header("OCR Settings")
+    # --- Sidebar Controls ---
+    st.sidebar.title("Configuration")
+    
+    st.sidebar.markdown("### 1. Select Language")
     language_map = {
         "English": "eng",
-        "French": "fre",
-        "Arabic": "ara"
+        "French": "fre"
     }
-    selected_language = st.sidebar.selectbox("Select Document Language", options=list(language_map.keys()))
+    selected_language = st.sidebar.selectbox("Document Language", options=list(language_map.keys()))
     language_code = language_map[selected_language]
     
-    enable_table_parsing = st.sidebar.checkbox("Enable Table Parsing (isTable=True)", value=True)
+    st.sidebar.markdown("### 2. Processing Options")
+    enable_table_parsing = st.sidebar.checkbox("Enable Table Parsing", value=True, help="Turn this on to better extract structured data like invoices or tables.")
 
-    st.markdown("### Input Source")
-    input_method = st.radio("Choose input method:", ("Upload an Image", "Take a Photo"))
+    st.sidebar.markdown("### 3. Provide Image")
+    input_method = st.sidebar.radio("Choose input method:", ("Upload an Image", "Take a Photo"))
     
     uploaded_file = None
     if input_method == "Upload an Image":
-        # File uploader
-        uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+        uploaded_file = st.sidebar.file_uploader("Upload Image (JPG, PNG)", type=["jpg", "jpeg", "png"])
     else:
-        # Camera input
-        uploaded_file = st.camera_input("Take a picture")
+        uploaded_file = st.sidebar.camera_input("Take a picture")
 
+    # --- Main Area ---
     if uploaded_file is not None:
-        # Display the image
-        image = Image.open(uploaded_file)
-        st.image(image, caption='Image for OCR', use_column_width=True)
+        # Display the image in an expander to keep the UI clean
+        with st.expander("View Uploaded Image"):
+            image = Image.open(uploaded_file)
+            st.image(image, caption='Source Document', use_column_width=True)
 
-        st.markdown("---")
-        st.subheader("Extracted Text")
+        st.subheader("Extracted Data")
 
-        with st.spinner("Extracting text..."):
+        with st.spinner("Analyzing document and extracting text..."):
             # Read image bytes
             image_bytes = uploaded_file.getvalue()
             
@@ -157,43 +158,47 @@ def main():
             extracted_text = perform_ocr(processed_image_bytes, api_key, language_code, enable_table_parsing)
 
         if extracted_text:
+            st.success("Extraction completed successfully!")
+            
             # Editable text area
-            edited_text = st.text_area("Edit the extracted text:", value=extracted_text, height=300)
+            edited_text = st.text_area("Review and edit the extracted text:", value=extracted_text, height=350)
 
-            st.markdown("### Download")
+            st.markdown("### Export Options")
             
             col1, col2, col3 = st.columns(3)
             
-            # Download as Word (.docx)
             with col1:
                 word_bytes = create_word_doc(edited_text)
                 st.download_button(
-                    label="Download as Word (.docx)",
+                    label="📄 Download as Word",
                     data=word_bytes,
                     file_name="extracted_text.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    use_container_width=True
                 )
                 
-            # Download as Excel (.xlsx)
             with col2:
                 excel_bytes = create_excel_doc(edited_text)
                 st.download_button(
-                    label="Download as Excel (.xlsx)",
+                    label="📊 Download as Excel",
                     data=excel_bytes,
                     file_name="extracted_text.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
                 )
             
-            # Download as Text (.txt)
             with col3:
                 st.download_button(
-                    label="Download as Text (.txt)",
+                    label="📝 Download as Text",
                     data=edited_text,
                     file_name="extracted_text.txt",
-                    mime="text/plain"
+                    mime="text/plain",
+                    use_container_width=True
                 )
         else:
-            st.warning("No text was extracted from the image.")
+            st.warning("No text was extracted from the image. Please try a clearer document or adjust the settings.")
+    else:
+        st.info("👈 Please use the sidebar to upload an image or take a photo to begin.")
 
 if __name__ == "__main__":
     main()
