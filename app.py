@@ -25,10 +25,15 @@ def perform_ocr(image_bytes, api_key, language, is_table):
     
     # We can send the image file directly
     files = {"file": ("image.jpg", image_bytes, "image/jpeg")}
+    
+    # Engine 2 supports English and French well, but does not support Arabic.
+    # We must use Engine 1 for Arabic to avoid the language parameter error.
+    engine = 1 if language == "ara" else 2
+    
     data = {
         "apikey": api_key,
         "language": language, 
-        "OCREngine": 2, # Engine 2 is usually better for documents
+        "OCREngine": engine,
         "isTable": "true" if is_table else "false"
     }
     
