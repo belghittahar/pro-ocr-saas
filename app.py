@@ -1,7 +1,7 @@
 import streamlit as st
 import io
 import requests
-from PIL import Image
+from PIL import Image, ImageEnhance
 import docx
 import pandas as pd
 
@@ -25,7 +25,6 @@ def perform_ocr(image_bytes, api_key, language, is_table):
     
     # We can send the image file directly
     files = {"file": ("image.jpg", image_bytes, "image/jpeg")}
-    
     # Engine 2 supports English and French well, but does not support Arabic.
     # We must use Engine 1 for Arabic to avoid the language parameter error.
     engine = 1 if language == "ara" else 2
@@ -34,7 +33,9 @@ def perform_ocr(image_bytes, api_key, language, is_table):
         "apikey": api_key,
         "language": language, 
         "OCREngine": engine,
-        "isTable": "true" if is_table else "false"
+        "isTable": "true" if is_table else "false",
+        "scale": "true",
+        "detectOrientation": "true"
     }
     
     try:
@@ -58,6 +59,25 @@ def perform_ocr(image_bytes, api_key, language, is_table):
     except Exception as e:
         st.error(f"Failed to connect to OCR.space API: {e}")
         return ""
+
+def preprocess_image(image_bytes):
+    """
+    Preprocess image by converting to grayscale and increasing contrast
+    to improve OCR accuracy, especially for cursive languages like Arabic.
+    """
+    image = Image.open(io.BytesIO(image_bytes))
+    
+    # Convert to grayscale
+    image = image.convert('L')
+    
+    # Increase contrast
+    enhancer = ImageEnhance.Contrast(image)
+    image = enhancer.enhance(2.0) # You can adjust this factor
+    
+    # Save back to bytes
+    img_byte_arr = io.BytesIO()
+    image.save(img_byte_arr, format='JPEG')
+    return img_byte_arr.getvalue()
 
 def create_word_doc(text):
     """
@@ -130,8 +150,11 @@ def main():
             # Read image bytes
             image_bytes = uploaded_file.getvalue()
             
+            # Preprocess the image for better OCR results
+            processed_image_bytes = preprocess_image(image_bytes)
+            
             # Perform OCR
-            extracted_text = perform_ocr(image_bytes, api_key, language_code, enable_table_parsing)
+            extracted_text = perform_ocr(processed_image_bytes, api_key, language_code, enable_table_parsing)
 
         if extracted_text:
             # Editable text area
