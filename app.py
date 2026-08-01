@@ -1,53 +1,56 @@
 import streamlit as st
-import os
-import json
 import io
-from google.cloud import vision
-from google.oauth2 import service_account
+import requests
 from PIL import Image
 import docx
 
 # Set page config
 st.set_page_config(page_title="Professional OCR App", layout="wide")
 
-def get_vision_client():
+def get_ocr_space_key():
     """
-    Authenticate and return a Google Cloud Vision client.
-    Tries to use Streamlit secrets first, then falls back to a local JSON file.
+    Retrieve the OCR.space API key from Streamlit secrets.
     """
-    # 1. Try Streamlit Secrets
-    if "gcp_service_account" in st.secrets:
-        creds_dict = st.secrets["gcp_service_account"]
-        # Convert dictionary to proper credentials object
-        credentials = service_account.Credentials.from_service_account_info(creds_dict)
-        return vision.ImageAnnotatorClient(credentials=credentials)
-    
-    # 2. Try Local JSON file
-    local_creds_path = "google-credentials.json"
-    if os.path.exists(local_creds_path):
-        return vision.ImageAnnotatorClient.from_service_account_json(local_creds_path)
-    
-    # 3. Try standard Google Application Default Credentials (e.g. environment variable)
-    if "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
-         return vision.ImageAnnotatorClient()
-
-    st.error("Google Cloud credentials not found. Please configure Streamlit secrets or provide a google-credentials.json file.")
+    if "OCR_SPACE_API_KEY" in st.secrets:
+        return st.secrets["OCR_SPACE_API_KEY"]
+    st.error("OCR.space API key not found. Please configure Streamlit secrets with 'OCR_SPACE_API_KEY'.")
     return None
 
-def perform_ocr(image_bytes, client):
+def perform_ocr(image_bytes, api_key):
     """
-    Perform OCR using Google Cloud Vision API (document_text_detection).
+    Perform OCR using OCR.space API.
     """
-    image = vision.Image(content=image_bytes)
+    url = "https://api.ocr.space/parse/image"
     
-    # Use document_text_detection for dense text, pages, complex layouts
-    response = client.document_text_detection(image=image)
+    # We can send the image file directly
+    files = {"file": ("image.jpg", image_bytes, "image/jpeg")}
+    data = {
+        "apikey": api_key,
+        "language": "eng", 
+        "OCREngine": 2 # Engine 2 is usually better for documents
+    }
     
-    if response.error.message:
-        st.error(f"Error from Google Cloud Vision API: {response.error.message}")
-        return ""
+    try:
+        response = requests.post(url, files=files, data=data)
+        response.raise_for_status()
+        result = response.json()
         
-    return response.full_text_annotation.text
+        if result.get("IsErroredOnProcessing"):
+            st.error(f"OCR Error: {result.get('ErrorMessage')}")
+            return ""
+            
+        parsed_results = result.get("ParsedResults", [])
+        if not parsed_results:
+            return ""
+            
+        extracted_text = ""
+        for res in parsed_results:
+            extracted_text += res.get("ParsedText", "") + "\n"
+            
+        return extracted_text.strip()
+    except Exception as e:
+        st.error(f"Failed to connect to OCR.space API: {e}")
+        return ""
 
 def create_word_doc(text):
     """
@@ -63,10 +66,10 @@ def create_word_doc(text):
 
 def main():
     st.title("Professional OCR App")
-    st.markdown("Upload an image to extract text using Google Cloud Vision API.")
+    st.markdown("Upload an image to extract text using OCR.space API.")
 
-    client = get_vision_client()
-    if not client:
+    api_key = get_ocr_space_key()
+    if not api_key:
         st.stop()
 
     # File uploader
@@ -81,11 +84,11 @@ def main():
         st.subheader("Extracted Text")
 
         with st.spinner("Extracting text..."):
-            # Read image bytes for the Vision API
+            # Read image bytes
             image_bytes = uploaded_file.getvalue()
             
             # Perform OCR
-            extracted_text = perform_ocr(image_bytes, client)
+            extracted_text = perform_ocr(image_bytes, api_key)
 
         if extracted_text:
             # Editable text area
