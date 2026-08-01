@@ -1,4 +1,4 @@
 streamlit
-google-cloud-vision
+requests
 python-docx
 Pillow
