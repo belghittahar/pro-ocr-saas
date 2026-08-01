@@ -2,3 +2,5 @@ streamlit
 requests
 python-docx
 Pillow
+pandas
+openpyxl
