@@ -1,6 +1,8 @@
 streamlit
-requests
 python-docx
 Pillow
 pandas
 openpyxl
+openai
+streamlit-lottie
+requests
