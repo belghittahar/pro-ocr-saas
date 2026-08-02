@@ -125,8 +125,8 @@ def analyze_document_with_vision(image_bytes, api_key):
     """
     genai.configure(api_key=api_key)
     
-    # Switch to gemini-1.5-pro-latest to ensure stable API compatibility
-    model = genai.GenerativeModel('gemini-1.5-pro-latest')
+    # Switch to exactly 'gemini-1.5-pro' per Google API strict requirements
+    model = genai.GenerativeModel('gemini-1.5-pro')
     
     # Prepare the image using PIL (Generative API accepts PIL Image directly)
     image = Image.open(io.BytesIO(image_bytes))
