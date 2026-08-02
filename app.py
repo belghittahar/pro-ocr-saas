@@ -7,9 +7,12 @@ import docx
 import pandas as pd
 import google.generativeai as genai
 from streamlit_lottie import st_lottie
+import PyPDF2
+import pdfplumber
+from pptx import Presentation
 
 # -----------------------------------------------------------------------------
-# Configuration
+# Configuration & State
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="VisionAI SaaS - Document Intelligence",
@@ -17,6 +20,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+if "show_camera" not in st.session_state:
+    st.session_state.show_camera = False
 
 # -----------------------------------------------------------------------------
 # Custom CSS (Glassmorphism & Premium UI)
@@ -42,7 +48,7 @@ st.markdown("""
 }
 
 /* Headings */
-h1, h2, h3 {
+h1, h2, h3, h4 {
     color: #1a202c;
     font-weight: 800;
 }
@@ -69,16 +75,16 @@ h1, h2, h3 {
     color: white !important;
     border: none;
     border-radius: 12px;
-    padding: 1rem 2rem;
-    font-size: 1.1rem;
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
     font-weight: 600;
     transition: all 0.3s ease;
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     width: 100%;
 }
 .stButton > button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
 }
 
 .stDownloadButton > button {
@@ -101,7 +107,7 @@ h1, h2, h3 {
     border-top: 1px solid rgba(0,0,0,0.05);
 }
 
-/* Hide default file uploader text if possible, style the drag-drop zone */
+/* Custom file uploader styling */
 [data-testid="stFileUploadDropzone"] {
     background-color: rgba(255, 255, 255, 0.5);
     border: 2px dashed #a0aec0;
@@ -111,39 +117,106 @@ h1, h2, h3 {
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# Core Functions
+# Core Extraction Functions
 # -----------------------------------------------------------------------------
 def load_lottieurl(url: str):
-    r = requests.get(url)
-    if r.status_code != 200:
+    try:
+        r = requests.get(url)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except:
         return None
-    return r.json()
 
-def analyze_document_with_vision(image_bytes, api_key):
+def extract_text_from_pdf(file_bytes):
+    text = ""
+    try:
+        # Try pdfplumber first for better layout extraction
+        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+            for page in pdf.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+    except Exception as e:
+        # Fallback to PyPDF2
+        try:
+            reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
+            for page in reader.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+        except Exception as e2:
+            st.error(f"Failed to extract PDF: {str(e2)}")
+    return text
+
+def extract_text_from_docx(file_bytes):
+    text = ""
+    try:
+        doc = docx.Document(io.BytesIO(file_bytes))
+        for para in doc.paragraphs:
+            text += para.text + "\n"
+    except Exception as e:
+        st.error(f"Failed to extract Word document: {str(e)}")
+    return text
+
+def extract_text_from_excel(file_bytes):
+    try:
+        df = pd.read_excel(io.BytesIO(file_bytes))
+        return df.to_string()
+    except Exception as e:
+        st.error(f"Failed to extract Excel document: {str(e)}")
+        return ""
+
+def extract_text_from_csv(file_bytes):
+    try:
+        df = pd.read_csv(io.BytesIO(file_bytes))
+        return df.to_string()
+    except Exception as e:
+        st.error(f"Failed to extract CSV document: {str(e)}")
+        return ""
+
+def extract_text_from_pptx(file_bytes):
+    text = ""
+    try:
+        prs = Presentation(io.BytesIO(file_bytes))
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    text += shape.text + "\n"
+    except Exception as e:
+        st.error(f"Failed to extract PowerPoint document: {str(e)}")
+    return text
+
+def analyze_document_with_ai(file_content, is_image, api_key):
     """
-    Use Google Gemini 3.5 Flash to analyze the document.
+    Use Google Gemini to analyze either an image (Vision) or raw text (Text).
     """
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-3.5-flash')
-    
-    # Prepare the image using PIL (Generative API accepts PIL Image directly)
-    image = Image.open(io.BytesIO(image_bytes))
     
     prompt = """
-    You are an advanced Document Intelligence AI. Analyze this image and provide:
-    1. The Type of Document (e.g., Invoice, Contract, Receipt, Letter).
+    You are an advanced Document Intelligence AI. Analyze this input and provide:
+    1. The Type of Document (e.g., Invoice, Contract, Receipt, Letter, Spreadsheet).
     2. The Language of the Document (auto-detected).
-    3. Key Entities Extracted (e.g., Total Amount, Date, Names of parties involved, Invoice Number).
+    3. Key Entities Extracted (e.g., Total Amount, Date, Names of parties involved, Invoice Number, Structured Data).
     4. The Full Extracted Text.
     
     Format your response clearly using Markdown headings (e.g. ### Document Type, ### Key Entities, ### Full Text).
     """
 
     try:
-        response = model.generate_content([prompt, image])
+        if is_image:
+            model = genai.GenerativeModel('gemini-3.5-flash')
+            image = Image.open(io.BytesIO(file_content))
+            response = model.generate_content([prompt, image])
+        else:
+            model = genai.GenerativeModel('gemini-3.5-flash')
+            # The prompt + the extracted raw text
+            full_prompt = f"{prompt}\n\nDocument Text:\n{file_content}"
+            response = model.generate_content(full_prompt)
+            
         return response.text
     except Exception as e:
-        st.error(f"AI Vision Processing Error: {str(e)}")
+        st.error(f"AI Processing Error: {str(e)}")
         return None
 
 def create_word_doc(text):
@@ -154,7 +227,6 @@ def create_word_doc(text):
     return bio.getvalue()
 
 def create_excel_doc(text):
-    # Simple parsing to place the structured text into an Excel sheet
     lines = text.split('\n')
     data = [[line] for line in lines if line.strip()]
     df = pd.DataFrame(data, columns=["Extracted Content"])
@@ -168,12 +240,11 @@ def create_excel_doc(text):
 # Main Application
 # -----------------------------------------------------------------------------
 def main():
-    # Retrieve Gemini API Key from environment variable strictly (No st.secrets)
     gemini_api_key = os.environ.get("GEMINI_API_KEY")
 
     # Hero Section
     st.markdown('<p class="main-title">VisionAI Intelligence</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-title">Turn physical documents into intelligent digital data instantly with AI.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-title">Turn any physical or digital document into intelligent data instantly with AI.</p>', unsafe_allow_html=True)
     
     # Visual Onboarding Animation (Lottie)
     lottie_url = "https://assets3.lottiefiles.com/packages/lf20_qp1q7mct.json"
@@ -187,44 +258,93 @@ def main():
         st.warning("⚠️ Gemini API Key is missing. Please set the 'GEMINI_API_KEY' environment variable to use the AI extraction features.")
         st.stop()
 
-    # Input Section: Side-by-side Massive CTA
+    # --- Sleek Input Section ---
     st.markdown("### 📥 Provide your Document")
+    st.markdown("Supported formats: Images (PNG, JPG, WEBP) & Documents (PDF, DOCX, XLSX, CSV, PPTX, TXT)")
     
     uploaded_file = None
+    file_bytes = None
+    is_image = False
     
-    col1, col2 = st.columns(2, gap="large")
-    with col1:
-        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
-        st.markdown("#### 📂 Upload File")
-        upload_input = st.file_uploader("Drag & drop or browse (JPG, PNG)", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
+    st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
+    
+    # Elegant buttons instead of massive camera block
+    col_upload, col_camera = st.columns(2)
+    
+    with col_upload:
+        # File uploader acts immediately when a file is dropped
+        upload_input = st.file_uploader("📂 Upload File", type=["jpg", "jpeg", "png", "webp", "pdf", "docx", "xlsx", "csv", "txt", "pptx"])
         if upload_input:
             uploaded_file = upload_input
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-    with col2:
-        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
-        st.markdown("#### 📷 Snap a Photo")
-        camera_input = st.camera_input("Use your device camera", label_visibility="collapsed")
-        if camera_input:
-            uploaded_file = camera_input
-        st.markdown("</div>", unsafe_allow_html=True)
+            # Reset camera state if a file is uploaded
+            st.session_state.show_camera = False
 
-    # Processing & Output Section
+    with col_camera:
+        st.markdown("<br>", unsafe_allow_html=True) # Align with uploader
+        if st.button("📷 Take Photo"):
+            st.session_state.show_camera = not st.session_state.show_camera
+            
+        if st.session_state.show_camera:
+            # Elegant expander-like container for camera
+            camera_input = st.camera_input("Capture Document")
+            if camera_input:
+                uploaded_file = camera_input
+                # Optional: Hide camera after capture to clean up UI
+                # st.session_state.show_camera = False
+                
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # --- Processing & Output Section ---
     if uploaded_file is not None:
         st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
         st.subheader("🧠 AI Analysis Results")
         
-        # Two-column layout for results: Image on left, Data on right
+        file_bytes = uploaded_file.getvalue()
+        file_extension = uploaded_file.name.split('.')[-1].lower() if uploaded_file.name else 'jpg'
+        
+        image_formats = ['jpg', 'jpeg', 'png', 'webp']
+        if file_extension in image_formats:
+            is_image = True
+        
         res_col1, res_col2 = st.columns([1, 1.5], gap="medium")
         
         with res_col1:
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Source Document", use_container_width=True, clamp=True)
+            if is_image:
+                try:
+                    image = Image.open(uploaded_file)
+                    st.image(image, caption="Source Document", use_container_width=True, clamp=True)
+                except:
+                    st.warning("Preview not available for this image format.")
+            else:
+                st.info(f"📄 Document Uploaded: {uploaded_file.name}")
             
         with res_col2:
-            with st.spinner("VisionAI is processing your document with Gemini 3.5 Flash..."):
-                image_bytes = uploaded_file.getvalue()
-                ai_extracted_data = analyze_document_with_vision(image_bytes, gemini_api_key)
+            with st.spinner("VisionAI is processing your document..."):
+                extracted_raw_text = ""
+                
+                # Pre-processing for non-images
+                if not is_image:
+                    if file_extension == 'pdf':
+                        extracted_raw_text = extract_text_from_pdf(file_bytes)
+                    elif file_extension == 'docx':
+                        extracted_raw_text = extract_text_from_docx(file_bytes)
+                    elif file_extension == 'xlsx':
+                        extracted_raw_text = extract_text_from_excel(file_bytes)
+                    elif file_extension == 'csv':
+                        extracted_raw_text = extract_text_from_csv(file_bytes)
+                    elif file_extension == 'pptx':
+                        extracted_raw_text = extract_text_from_pptx(file_bytes)
+                    elif file_extension == 'txt':
+                        extracted_raw_text = file_bytes.decode('utf-8', errors='ignore')
+                    
+                    if not extracted_raw_text.strip():
+                        st.error("Failed to extract raw text from document, or document is empty.")
+                        ai_extracted_data = None
+                    else:
+                        ai_extracted_data = analyze_document_with_ai(extracted_raw_text, False, gemini_api_key)
+                else:
+                    # It's an image, pass bytes directly to Vision model
+                    ai_extracted_data = analyze_document_with_ai(file_bytes, True, gemini_api_key)
                 
             if ai_extracted_data:
                 st.success("✅ Document Analyzed Successfully!")
@@ -255,7 +375,7 @@ def main():
     st.markdown("""
     <div class="footer">
         <strong>VisionAI SaaS</strong><br>
-        Transforming physical documents into actionable digital data instantly. 
+        Transforming physical documents and digital files into actionable data instantly. 
         We save professionals hours of manual data entry through cutting-edge multimodal AI.
     </div>
     """, unsafe_allow_html=True)
