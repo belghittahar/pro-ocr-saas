@@ -4,6 +4,7 @@ import requests
 from PIL import Image, ImageEnhance
 import docx
 import pandas as pd
+import os
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -135,9 +136,10 @@ div.stDownloadButton > button:hover {
 # Core Functions
 # -----------------------------------------------------------------------------
 def get_ocr_space_key():
-    if "OCR_SPACE_API_KEY" in st.secrets:
-        return st.secrets["OCR_SPACE_API_KEY"]
-    st.error("OCR.space API key not found. Please configure Streamlit secrets with 'OCR_SPACE_API_KEY'.")
+    api_key = os.environ.get("OCR_SPACE_API_KEY")
+    if api_key:
+        return api_key
+    st.error("OCR.space API key not found. Please configure the environment variable 'OCR_SPACE_API_KEY'.")
     return None
 
 def preprocess_image(image_bytes):
