@@ -119,32 +119,11 @@ def load_lottieurl(url: str):
         return None
     return r.json()
 
-def analyze_document_with_vision(image_bytes, api_key):
+def analyze_document_with_vision(image_bytes, model_name):
     """
-    Use Google Gemini to analyze the document, dynamically selecting
-    a supported vision model to prevent 404 errors.
+    Use Google Gemini to analyze the document with the dynamically selected model.
     """
-    genai.configure(api_key=api_key)
-    
-    # Dynamically find an available vision-capable model
-    available_models = []
-    try:
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                available_models.append(m.name)
-    except Exception as e:
-        st.warning("Could not fetch model list. Falling back to default.")
-        
-    # Priority list of models we want to try
-    preferred_models = ['models/gemini-1.5-pro', 'models/gemini-1.5-flash', 'models/gemini-pro-vision']
-    selected_model_name = 'gemini-pro-vision' # Ultimate fallback
-    
-    for pref in preferred_models:
-        if pref in available_models:
-            selected_model_name = pref.replace('models/', '')
-            break
-
-    model = genai.GenerativeModel(selected_model_name)
+    model = genai.GenerativeModel(model_name)
     
     # Prepare the image using PIL (Generative API accepts PIL Image directly)
     image = Image.open(io.BytesIO(image_bytes))
@@ -190,10 +169,36 @@ def create_excel_doc(text):
 def main():
     # Retrieve Gemini API Key from environment variable strictly (No st.secrets)
     gemini_api_key = os.environ.get("GEMINI_API_KEY")
-    
+
+    if not gemini_api_key:
+        st.warning("⚠️ Gemini API Key is missing. Please set the 'GEMINI_API_KEY' environment variable to use the AI extraction features.")
+        st.stop()
+        
+    genai.configure(api_key=gemini_api_key)
+
+    # Dynamically find an available vision-capable model
+    available_models = []
+    selected_model = None
+    try:
+        for m in genai.list_models():
+            available_models.append(m.name)
+            if not selected_model and 'generateContent' in m.supported_generation_methods:
+                selected_model = m.name.replace('models/', '')
+    except Exception as e:
+        st.warning(f"Could not fetch model list: {e}")
+
+    # Display available models in sidebar for debugging
+    st.sidebar.markdown("### Debug: Available Models")
+    st.sidebar.write(available_models)
+    if selected_model:
+        st.sidebar.success(f"Automatically selected: {selected_model}")
+    else:
+        st.sidebar.error("No compatible model found!")
+        st.stop()
+
     # Hero Section
     st.markdown('<p class="main-title">VisionAI Intelligence</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-title">Turn physical documents into intelligent digital data instantly with Gemini 1.5 Vision.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-title">Turn physical documents into intelligent digital data instantly with AI.</p>', unsafe_allow_html=True)
     
     # Visual Onboarding Animation (Lottie)
     lottie_url = "https://assets3.lottiefiles.com/packages/lf20_qp1q7mct.json"
@@ -202,10 +207,6 @@ def main():
         st_lottie(lottie_json, height=250, key="ai_animation")
 
     st.markdown("---")
-
-    if not gemini_api_key:
-        st.warning("⚠️ Gemini API Key is missing. Please set the 'GEMINI_API_KEY' environment variable to use the AI extraction features.")
-        st.stop()
 
     # Input Section: Side-by-side Massive CTA
     st.markdown("### 📥 Provide your Document")
@@ -242,9 +243,9 @@ def main():
             st.image(image, caption="Source Document", use_container_width=True, clamp=True)
             
         with res_col2:
-            with st.spinner("VisionAI is processing your document..."):
+            with st.spinner(f"Processing your document using {selected_model}..."):
                 image_bytes = uploaded_file.getvalue()
-                ai_extracted_data = analyze_document_with_vision(image_bytes, gemini_api_key)
+                ai_extracted_data = analyze_document_with_vision(image_bytes, selected_model)
                 
             if ai_extracted_data:
                 st.success("✅ Document Analyzed Successfully!")
