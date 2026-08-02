@@ -3,6 +3,6 @@ python-docx
 Pillow
 pandas
 openpyxl
-google-generativeai>=0.6.0
 streamlit-lottie
 requests
+google-generativeai>=0.5.2
