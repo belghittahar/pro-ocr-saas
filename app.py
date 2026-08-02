@@ -187,8 +187,8 @@ def create_excel_doc(text):
 # Main Application
 # -----------------------------------------------------------------------------
 def main():
-    # Attempt to retrieve OpenAI API Key
-    openai_api_key = os.environ.get("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
+    # Retrieve OpenAI API Key from environment variable only
+    openai_api_key = os.environ.get("OPENAI_API_KEY")
     
     # Hero Section
     st.markdown('<p class="main-title">VisionAI Intelligence</p>', unsafe_allow_html=True)
@@ -204,7 +204,7 @@ def main():
     st.markdown("---")
 
     if not openai_api_key:
-        st.error("OpenAI API Key is missing. Please set the OPENAI_API_KEY environment variable or Streamlit secret.")
+        st.warning("⚠️ OpenAI API Key is missing. Please set the 'OPENAI_API_KEY' environment variable to use the AI extraction features.")
         st.stop()
 
     # Input Section: Side-by-side Massive CTA
