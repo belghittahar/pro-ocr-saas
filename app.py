@@ -1,12 +1,11 @@
 import streamlit as st
 import io
 import os
-import base64
 import requests
 from PIL import Image
 import docx
 import pandas as pd
-from openai import OpenAI
+import google.generativeai as genai
 from streamlit_lottie import st_lottie
 
 # -----------------------------------------------------------------------------
@@ -120,15 +119,17 @@ def load_lottieurl(url: str):
         return None
     return r.json()
 
-def encode_image_to_base64(image_bytes):
-    return base64.b64encode(image_bytes).decode('utf-8')
-
 def analyze_document_with_vision(image_bytes, api_key):
     """
-    Use OpenAI GPT-4o Vision to analyze the document.
+    Use Google Gemini 1.5 Flash Vision to analyze the document.
     """
-    client = OpenAI(api_key=api_key)
-    base64_image = encode_image_to_base64(image_bytes)
+    genai.configure(api_key=api_key)
+    
+    # gemini-1.5-flash is excellent for multimodal fast inference
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    # Prepare the image using PIL (Generative API accepts PIL Image directly)
+    image = Image.open(io.BytesIO(image_bytes))
     
     prompt = """
     You are an advanced Document Intelligence AI. Analyze this image and provide:
@@ -141,26 +142,8 @@ def analyze_document_with_vision(image_bytes, api_key):
     """
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}",
-                                "detail": "high"
-                            }
-                        }
-                    ]
-                }
-            ],
-            max_tokens=2000
-        )
-        return response.choices[0].message.content
+        response = model.generate_content([prompt, image])
+        return response.text
     except Exception as e:
         st.error(f"AI Vision Processing Error: {str(e)}")
         return None
@@ -187,15 +170,14 @@ def create_excel_doc(text):
 # Main Application
 # -----------------------------------------------------------------------------
 def main():
-    # Retrieve OpenAI API Key from environment variable only
-    openai_api_key = os.environ.get("OPENAI_API_KEY")
+    # Retrieve Gemini API Key from environment variable strictly (No st.secrets)
+    gemini_api_key = os.environ.get("GEMINI_API_KEY")
     
     # Hero Section
     st.markdown('<p class="main-title">VisionAI Intelligence</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-title">Turn physical documents into intelligent digital data instantly with GPT-4o Vision.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-title">Turn physical documents into intelligent digital data instantly with Gemini 1.5 Vision.</p>', unsafe_allow_html=True)
     
     # Visual Onboarding Animation (Lottie)
-    # A futuristic/AI scanning animation
     lottie_url = "https://assets3.lottiefiles.com/packages/lf20_qp1q7mct.json"
     lottie_json = load_lottieurl(lottie_url)
     if lottie_json:
@@ -203,8 +185,8 @@ def main():
 
     st.markdown("---")
 
-    if not openai_api_key:
-        st.warning("⚠️ OpenAI API Key is missing. Please set the 'OPENAI_API_KEY' environment variable to use the AI extraction features.")
+    if not gemini_api_key:
+        st.warning("⚠️ Gemini API Key is missing. Please set the 'GEMINI_API_KEY' environment variable to use the AI extraction features.")
         st.stop()
 
     # Input Section: Side-by-side Massive CTA
@@ -244,7 +226,7 @@ def main():
         with res_col2:
             with st.spinner("VisionAI is processing your document..."):
                 image_bytes = uploaded_file.getvalue()
-                ai_extracted_data = analyze_document_with_vision(image_bytes, openai_api_key)
+                ai_extracted_data = analyze_document_with_vision(image_bytes, gemini_api_key)
                 
             if ai_extracted_data:
                 st.success("✅ Document Analyzed Successfully!")
