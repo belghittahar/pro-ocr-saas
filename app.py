@@ -121,12 +121,30 @@ def load_lottieurl(url: str):
 
 def analyze_document_with_vision(image_bytes, api_key):
     """
-    Use Google Gemini 1.5 Pro to analyze the document.
+    Use Google Gemini to analyze the document, dynamically selecting
+    a supported vision model to prevent 404 errors.
     """
     genai.configure(api_key=api_key)
     
-    # Switch to exactly 'gemini-1.5-pro' per Google API strict requirements
-    model = genai.GenerativeModel('gemini-1.5-pro')
+    # Dynamically find an available vision-capable model
+    available_models = []
+    try:
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                available_models.append(m.name)
+    except Exception as e:
+        st.warning("Could not fetch model list. Falling back to default.")
+        
+    # Priority list of models we want to try
+    preferred_models = ['models/gemini-1.5-pro', 'models/gemini-1.5-flash', 'models/gemini-pro-vision']
+    selected_model_name = 'gemini-pro-vision' # Ultimate fallback
+    
+    for pref in preferred_models:
+        if pref in available_models:
+            selected_model_name = pref.replace('models/', '')
+            break
+
+    model = genai.GenerativeModel(selected_model_name)
     
     # Prepare the image using PIL (Generative API accepts PIL Image directly)
     image = Image.open(io.BytesIO(image_bytes))
