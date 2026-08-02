@@ -221,7 +221,7 @@ def main():
         
         with res_col1:
             image = Image.open(uploaded_file)
-            st.image(image, caption="Source Document", use_column_width=True, clamp=True)
+            st.image(image, caption="Source Document", use_container_width=True, clamp=True)
             
         with res_col2:
             with st.spinner("VisionAI is processing your document..."):
