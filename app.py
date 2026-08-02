@@ -121,12 +121,12 @@ def load_lottieurl(url: str):
 
 def analyze_document_with_vision(image_bytes, api_key):
     """
-    Use Google Gemini 1.5 Flash Vision to analyze the document.
+    Use Google Gemini 1.5 Pro to analyze the document.
     """
     genai.configure(api_key=api_key)
     
-    # gemini-1.5-flash is excellent for multimodal fast inference
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Switch to gemini-1.5-pro-latest to ensure stable API compatibility
+    model = genai.GenerativeModel('gemini-1.5-pro-latest')
     
     # Prepare the image using PIL (Generative API accepts PIL Image directly)
     image = Image.open(io.BytesIO(image_bytes))
