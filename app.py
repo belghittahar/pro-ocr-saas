@@ -3,12 +3,10 @@ from streamlit_option_menu import option_menu
 from streamlit_mic_recorder import speech_to_text
 import io
 import os
-import requests
 from PIL import Image
 import docx
 import pandas as pd
 import google.generativeai as genai
-from streamlit_lottie import st_lottie
 import PyPDF2
 import pdfplumber
 from pptx import Presentation
@@ -17,7 +15,7 @@ from pptx import Presentation
 # Configuration & State
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Pixel2Word - AI Invoice & Document Extractor",
+    page_title="Pixel2Word - AI Document Platform",
     page_icon="📄",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -124,12 +122,15 @@ h1, h2, h3, h4 {
     box-shadow: 0 0 0 1px #3b82f6 !important;
 }
 
-/* File Uploader */
+/* File Uploader - Force High Contrast */
 [data-testid="stFileUploadDropzone"] {
     background-color: #ffffff;
     border: 1px dashed #d1d5db;
     border-radius: 6px;
     transition: all 0.2s ease;
+}
+[data-testid="stFileUploadDropzone"] div {
+    color: #111827 !important;
 }
 [data-testid="stFileUploadDropzone"]:hover {
     border-color: #6b7280;
@@ -175,39 +176,12 @@ h1, h2, h3, h4 {
     line-height: 1.6;
     margin-bottom: 1.2rem;
 }
-
-/* SEO Section */
-.seo-section {
-    background-color: #ffffff;
-    border-radius: 8px;
-    padding: 2.5rem;
-    margin-top: 4rem;
-    border: 1px solid #e5e7eb;
-}
-.seo-section h2 {
-    color: #111827;
-    font-size: 1.3rem;
-    margin-bottom: 1rem;
-}
-.seo-section p, .seo-section ul {
-    color: #4b5563;
-    line-height: 1.6;
-}
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # Core Extraction Functions
 # -----------------------------------------------------------------------------
-def load_lottieurl(url: str):
-    try:
-        r = requests.get(url)
-        if r.status_code != 200:
-            return None
-        return r.json()
-    except:
-        return None
-
 def extract_text_from_pdf(file_bytes):
     text = ""
     try:
@@ -309,34 +283,24 @@ def create_excel_doc(text):
     return bio.getvalue()
 
 # -----------------------------------------------------------------------------
-# Pages
+# Modular Pages
 # -----------------------------------------------------------------------------
-def render_home(gemini_api_key):
-    st.markdown('<p class="main-title">Pixel2Word</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-title">Enterprise document intelligence. Extract structured data instantly.</p>', unsafe_allow_html=True)
+def render_image_to_text(gemini_api_key):
+    st.markdown('<p class="main-title">Image to Text (OCR)</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-title">Extract structured data instantly from physical receipts and images.</p>', unsafe_allow_html=True)
     
-    lottie_url = "https://assets3.lottiefiles.com/packages/lf20_qp1q7mct.json"
-    lottie_json = load_lottieurl(lottie_url)
-    if lottie_json:
-        col1, col2, col3 = st.columns([1,2,1])
-        with col2:
-            st_lottie(lottie_json, height=150, key="ai_animation")
-
     if not gemini_api_key:
-        st.warning("⚠️ Configuration Required: Please set the 'GEMINI_API_KEY' environment variable.")
+        st.warning("⚠️ Gemini API Key is missing. Please set the 'GEMINI_API_KEY' environment variable.")
         st.stop()
 
     st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
-    st.markdown("### Process Document")
+    st.markdown("### Upload Image")
     
     uploaded_file = None
-    file_bytes = None
-    is_image = False
     
     col_upload, col_spacer, col_camera = st.columns([1, 0.1, 1])
-    
     with col_upload:
-        upload_input = st.file_uploader("Upload File (PDF, DOCX, XLSX, Images)", type=["jpg", "jpeg", "png", "webp", "pdf", "docx", "xlsx", "csv", "txt", "pptx"], label_visibility="collapsed")
+        upload_input = st.file_uploader("Upload Image (JPG, PNG, WEBP)", type=["jpg", "jpeg", "png", "webp"], label_visibility="collapsed")
         if upload_input:
             uploaded_file = upload_input
             st.session_state.show_camera = False
@@ -355,161 +319,177 @@ def render_home(gemini_api_key):
                 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- Processing & Output Section ---
     if uploaded_file is not None:
         st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
         st.markdown("### Analysis Results")
         
         file_bytes = uploaded_file.getvalue()
-        file_extension = uploaded_file.name.split('.')[-1].lower() if uploaded_file.name else 'jpg'
-        
-        image_formats = ['jpg', 'jpeg', 'png', 'webp']
-        if file_extension in image_formats:
-            is_image = True
         
         res_col1, res_col2 = st.columns([1, 1.5], gap="medium")
         
         with res_col1:
-            if is_image:
-                try:
-                    image = Image.open(uploaded_file)
-                    st.image(image, caption="Source Document", use_container_width=True, clamp=True)
-                except:
-                    st.warning("Preview not available.")
-            else:
-                st.info(f"📄 Document Loaded: {uploaded_file.name}")
+            try:
+                image = Image.open(uploaded_file)
+                st.image(image, caption="Source Image", use_container_width=True, clamp=True)
+            except:
+                st.warning("Preview not available.")
             
         with res_col2:
-            with st.spinner("Processing document..."):
-                extracted_raw_text = ""
-                
-                if not is_image:
-                    if file_extension == 'pdf':
-                        extracted_raw_text = extract_text_from_pdf(file_bytes)
-                    elif file_extension == 'docx':
-                        extracted_raw_text = extract_text_from_docx(file_bytes)
-                    elif file_extension == 'xlsx':
-                        extracted_raw_text = extract_text_from_excel(file_bytes)
-                    elif file_extension == 'csv':
-                        extracted_raw_text = extract_text_from_csv(file_bytes)
-                    elif file_extension == 'pptx':
-                        extracted_raw_text = extract_text_from_pptx(file_bytes)
-                    elif file_extension == 'txt':
-                        extracted_raw_text = file_bytes.decode('utf-8', errors='ignore')
-                    
-                    if not extracted_raw_text.strip():
-                        st.error("Failed to extract raw text from document.")
-                        ai_extracted_data = None
-                    else:
-                        ai_extracted_data = analyze_document_with_ai(extracted_raw_text, False, gemini_api_key)
-                else:
-                    ai_extracted_data = analyze_document_with_ai(file_bytes, True, gemini_api_key)
+            with st.spinner("Processing image..."):
+                ai_extracted_data = analyze_document_with_ai(file_bytes, True, gemini_api_key)
                 
             if ai_extracted_data:
                 st.success("Analysis Complete")
-                # Text area styled by CSS to be high-contrast light background
-                edited_text = st.text_area("Extracted Intelligence", value=ai_extracted_data, height=350, label_visibility="collapsed")
+                edited_text = st.text_area("Extracted Intelligence", value=ai_extracted_data, height=400, label_visibility="collapsed")
                 
-                # --- Voice-to-Text Feature ---
-                st.markdown("<p style='font-size: 0.9rem; color: #4b5563; margin-top: 0.5rem;'>🎤 Click to dictate additional notes:</p>", unsafe_allow_html=True)
-                dictated_text = speech_to_text(language='en', use_container_width=True, just_once=True, key='STT')
-                if dictated_text:
-                    edited_text = edited_text + "\n\n### Dictated Notes\n" + dictated_text
-                    st.success("Notes appended!")
-
                 st.markdown("<br><b>Export Data</b>", unsafe_allow_html=True)
                 btn_col1, btn_col2 = st.columns(2)
                 
                 with btn_col1:
                     word_bytes = create_word_doc(edited_text)
-                    st.download_button(
-                        label="📄 Download Word",
-                        data=word_bytes,
-                        file_name="pixel2word_extraction.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    )
+                    st.download_button("📄 Download Word", data=word_bytes, file_name="pixel2word_ocr.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 with btn_col2:
                     excel_bytes = create_excel_doc(edited_text)
-                    st.download_button(
-                        label="📊 Download Excel",
-                        data=excel_bytes,
-                        file_name="pixel2word_extraction.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+                    st.download_button("📊 Download Excel", data=excel_bytes, file_name="pixel2word_ocr.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- SEO Optimized Content ---
-    st.markdown("""
-    <div class="seo-section">
-        <h2>Enterprise Document Intelligence</h2>
-        <p>
-            Welcome to <strong>Pixel2Word</strong>, your B2B platform for automating document extraction. 
-            Process receipts, complex PDF invoices, and spreadsheets instantly using advanced AI.
-        </p>
-        <p>
-            <strong>How it Works:</strong> Upload any document. Our AI framework categorizes the file, 
-            detects the language, and autonomously extracts critical business entities (amounts, dates, items).
-        </p>
-        <p>
-            <strong>Key Advantages:</strong>
-            <ul>
-                <li><strong>Eliminate Manual Entry:</strong> Save hours of administrative overhead.</li>
-                <li><strong>Universal Format Support:</strong> Ingest PDFs, Word docs, Excel sheets, and Images.</li>
-                <li><strong>Instant Export:</strong> Download structured data directly to Microsoft Office formats.</li>
-            </ul>
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+def render_document_to_text(gemini_api_key):
+    st.markdown('<p class="main-title">Document to Text</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-title">Intelligently extract data from PDFs, Word docs, and Excel sheets.</p>', unsafe_allow_html=True)
+    
+    if not gemini_api_key:
+        st.warning("⚠️ Gemini API Key is missing. Please set the 'GEMINI_API_KEY' environment variable.")
+        st.stop()
+
+    st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
+    st.markdown("### Upload Document")
+    uploaded_file = st.file_uploader("Upload Document (PDF, DOCX, XLSX, CSV, PPTX, TXT)", type=["pdf", "docx", "xlsx", "csv", "txt", "pptx"])
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    if uploaded_file is not None:
+        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
+        st.markdown("### Analysis Results")
+        
+        file_bytes = uploaded_file.getvalue()
+        file_extension = uploaded_file.name.split('.')[-1].lower()
+        
+        st.info(f"📄 Document Loaded: {uploaded_file.name}")
+        
+        with st.spinner("Parsing and analyzing document..."):
+            extracted_raw_text = ""
+            if file_extension == 'pdf':
+                extracted_raw_text = extract_text_from_pdf(file_bytes)
+            elif file_extension == 'docx':
+                extracted_raw_text = extract_text_from_docx(file_bytes)
+            elif file_extension == 'xlsx':
+                extracted_raw_text = extract_text_from_excel(file_bytes)
+            elif file_extension == 'csv':
+                extracted_raw_text = extract_text_from_csv(file_bytes)
+            elif file_extension == 'pptx':
+                extracted_raw_text = extract_text_from_pptx(file_bytes)
+            elif file_extension == 'txt':
+                extracted_raw_text = file_bytes.decode('utf-8', errors='ignore')
+            
+            if not extracted_raw_text.strip():
+                st.error("Failed to extract raw text from document, or document is empty.")
+                ai_extracted_data = None
+            else:
+                ai_extracted_data = analyze_document_with_ai(extracted_raw_text, False, gemini_api_key)
+            
+        if ai_extracted_data:
+            st.success("Analysis Complete")
+            edited_text = st.text_area("Extracted Intelligence", value=ai_extracted_data, height=400, label_visibility="collapsed")
+            
+            st.markdown("<br><b>Export Data</b>", unsafe_allow_html=True)
+            btn_col1, btn_col2 = st.columns(2)
+            
+            with btn_col1:
+                word_bytes = create_word_doc(edited_text)
+                st.download_button("📄 Download Word", data=word_bytes, file_name="pixel2word_doc.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            with btn_col2:
+                excel_bytes = create_excel_doc(edited_text)
+                st.download_button("📊 Download Excel", data=excel_bytes, file_name="pixel2word_doc.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+def render_audio_to_text():
+    st.markdown('<p class="main-title">Audio to Text</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-title">Dictate notes instantly using your microphone.</p>', unsafe_allow_html=True)
+
+    st.markdown("<div class='glass-container' style='text-align: center;'>", unsafe_allow_html=True)
+    st.markdown("### 🎙️ Voice Dictation")
+    st.markdown("<p style='color:#6b7280;'>Click the button below to start recording. Speak clearly into your microphone.</p>", unsafe_allow_html=True)
+    
+    # We place the mic recorder cleanly in the center
+    dictated_text = speech_to_text(language='en', use_container_width=True, just_once=True, key='STT_main')
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    if dictated_text:
+        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
+        st.success("Audio transcribed successfully!")
+        edited_text = st.text_area("Transcription", value=dictated_text, height=200, label_visibility="collapsed")
+        
+        st.markdown("<br><b>Export Data</b>", unsafe_allow_html=True)
+        btn_col1, btn_col2 = st.columns(2)
+        with btn_col1:
+            word_bytes = create_word_doc(edited_text)
+            st.download_button("📄 Download Word", data=word_bytes, file_name="pixel2word_audio.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        with btn_col2:
+            st.download_button("📝 Download Text", data=edited_text, file_name="pixel2word_audio.txt", mime="text/plain")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 def render_privacy():
+    # Removed whitespace indentation to prevent rendering as code blocks
     st.markdown("""
-    <div class="page-container">
-        <h2>Privacy Policy</h2>
-        <p><em>Effective Date: 2024</em></p>
-        <p>Welcome to <strong>www.pixel2word.com</strong>. Enterprise data security is our highest priority.</p>
-        
-        <h3>1. Data Processing and Security</h3>
-        <p>All files, images, and documents uploaded to our platform are processed securely in real-time. 
-        <strong>We DO NOT store, log, or train models on your documents.</strong> Following extraction, files are immediately discarded from active memory.</p>
-        
-        <h3>2. Third-Party Infrastructure</h3>
-        <p>Our extraction pipeline relies on secure, enterprise-grade APIs (Google Generative AI). Data transmitted is subject to stringent enterprise security agreements ensuring absolute confidentiality.</p>
-        
-        <h3>3. Analytics</h3>
-        <p>We utilize standard web analytics strictly to monitor platform health. This data remains anonymized and is never linked to the contents of uploaded documents.</p>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="page-container">
+<h2>Privacy Policy</h2>
+<p><em>Effective Date: 2024</em></p>
+<p>Welcome to <strong>www.pixel2word.com</strong>. Enterprise data security is our highest priority.</p>
+
+<h3>1. Data Processing and Security</h3>
+<p>All files, images, and documents uploaded to our platform are processed securely in real-time. 
+<strong>We DO NOT store, log, or train models on your documents.</strong> Following extraction, files are immediately discarded from active memory.</p>
+
+<h3>2. Third-Party Infrastructure</h3>
+<p>Our extraction pipeline relies on secure, enterprise-grade APIs (Google Generative AI). Data transmitted is subject to stringent enterprise security agreements ensuring absolute confidentiality.</p>
+
+<h3>3. Analytics</h3>
+<p>We utilize standard web analytics strictly to monitor platform health. This data remains anonymized and is never linked to the contents of uploaded documents.</p>
+</div>
+""", unsafe_allow_html=True)
 
 def render_terms():
+    # Removed whitespace indentation to prevent rendering as code blocks
     st.markdown("""
-    <div class="page-container">
-        <h2>Terms of Service</h2>
-        <p>By accessing <strong>www.pixel2word.com</strong>, you agree to comply with these Terms of Service.</p>
-        
-        <h3>1. Use of Service</h3>
-        <p>Pixel2Word provides an advanced AI-powered document extraction tool provided "as is". While we leverage state-of-the-art AI to ensure accuracy, we do not guarantee 100% perfection. Users must verify extracted data prior to professional reliance.</p>
-        
-        <h3>2. Acceptable Use</h3>
-        <p>You agree not to use the platform to upload illegal, explicit, or malicious files. We reserve the right to permanently revoke access for policy violations.</p>
-        
-        <h3>3. Liability Limitation</h3>
-        <p>Pixel2Word and its operators shall not be held liable for direct or indirect damages resulting from data inaccuracies, service outages, or infrastructure limitations.</p>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="page-container">
+<h2>Terms of Service</h2>
+<p>By accessing <strong>www.pixel2word.com</strong>, you agree to comply with these Terms of Service.</p>
+
+<h3>1. Use of Service</h3>
+<p>Pixel2Word provides an advanced AI-powered document extraction tool provided "as is". While we leverage state-of-the-art AI to ensure accuracy, we do not guarantee 100% perfection. Users must verify extracted data prior to professional reliance.</p>
+
+<h3>2. Acceptable Use</h3>
+<p>You agree not to use the platform to upload illegal, explicit, or malicious files. We reserve the right to permanently revoke access for policy violations.</p>
+
+<h3>3. Liability Limitation</h3>
+<p>Pixel2Word and its operators shall not be held liable for direct or indirect damages resulting from data inaccuracies, service outages, or infrastructure limitations.</p>
+</div>
+""", unsafe_allow_html=True)
 
 def render_contact():
+    # Removed whitespace indentation to prevent rendering as code blocks
     st.markdown("""
-    <div class="page-container">
-        <h2>Contact Support</h2>
-        <p>Have technical questions, require API access, or need enterprise deployment support?</p>
-        <p>Reach out directly to our B2B integration team.</p>
-        
-        <h3>Email Support</h3>
-        <p>📧 <strong>contact@pixel2word.com</strong></p>
-        
-        <p><em>Standard SLA: Responses within 24 business hours.</em></p>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="page-container">
+<h2>Contact Support</h2>
+<p>Have technical questions, require API access, or need enterprise deployment support?</p>
+<p>Reach out directly to our B2B integration team.</p>
+
+<h3>Email Support</h3>
+<p>📧 <strong>contact@pixel2word.com</strong></p>
+
+<p><em>Standard SLA: Responses within 24 business hours.</em></p>
+</div>
+""", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # Main Application Router
@@ -523,8 +503,8 @@ def main():
         # Premium Navigation using option_menu
         page = option_menu(
             menu_title=None,
-            options=["Home / App", "Privacy Policy", "Terms of Service", "Contact Us"],
-            icons=["house", "shield-lock", "file-earmark-text", "envelope"],
+            options=["Image to Text", "Document to Text", "Audio to Text", "Privacy Policy", "Terms of Service", "Contact Us"],
+            icons=["camera", "file-earmark-text", "mic", "shield-lock", "file-earmark-check", "envelope"],
             menu_icon="cast",
             default_index=0,
             styles={
@@ -547,8 +527,12 @@ def main():
         )
 
     # Route Rendering
-    if page == "Home / App":
-        render_home(gemini_api_key)
+    if page == "Image to Text":
+        render_image_to_text(gemini_api_key)
+    elif page == "Document to Text":
+        render_document_to_text(gemini_api_key)
+    elif page == "Audio to Text":
+        render_audio_to_text()
     elif page == "Privacy Policy":
         render_privacy()
     elif page == "Terms of Service":
