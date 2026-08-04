@@ -10,4 +10,4 @@ PyPDF2
 pdfplumber
 python-pptx
 streamlit-option-menu
-streamlit-mic-recorde
+streamlit-mic-recorder
