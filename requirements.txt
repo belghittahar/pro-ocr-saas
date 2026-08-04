@@ -9,3 +9,4 @@ requests
 PyPDF2
 pdfplumber
 python-pptx
+streamlit-option-menu
