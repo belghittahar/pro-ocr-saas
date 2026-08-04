@@ -15,17 +15,17 @@ from pptx import Presentation
 # Configuration & State
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="VisionAI SaaS - Document Intelligence",
+    page_title="Pixel2Word - AI Invoice & Document Extractor",
     page_icon="🌌",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 if "show_camera" not in st.session_state:
     st.session_state.show_camera = False
 
 # -----------------------------------------------------------------------------
-# Custom CSS (Glassmorphism & Premium UI)
+# Custom CSS (Glassmorphism, Premium UI, & SEO Meta)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -113,7 +113,26 @@ h1, h2, h3, h4 {
     border: 2px dashed #a0aec0;
     border-radius: 15px;
 }
+
+/* SEO Text Styling */
+.seo-section {
+    background-color: rgba(255,255,255,0.85);
+    border-radius: 15px;
+    padding: 2rem;
+    margin-top: 3rem;
+    color: #333;
+    line-height: 1.6;
+}
+.seo-section h2 {
+    color: #2c5282;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 0.5rem;
+}
 </style>
+
+<!-- SEO Meta Tags for Google AdSense -->
+<meta name="description" content="Pixel2Word is an advanced AI document intelligence platform. Automatically extract data from invoices, PDFs, and images into structured Excel and Word formats.">
+<meta name="keywords" content="AI OCR, Invoice Extractor, Data Entry Automation, PDF to Word, PDF to Excel, Gemini AI OCR, Document Intelligence, Pixel2Word">
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
@@ -131,14 +150,12 @@ def load_lottieurl(url: str):
 def extract_text_from_pdf(file_bytes):
     text = ""
     try:
-        # Try pdfplumber first for better layout extraction
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
             for page in pdf.pages:
                 extracted = page.extract_text()
                 if extracted:
                     text += extracted + "\n"
-    except Exception as e:
-        # Fallback to PyPDF2
+    except Exception:
         try:
             reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
             for page in reader.pages:
@@ -188,13 +205,10 @@ def extract_text_from_pptx(file_bytes):
     return text
 
 def analyze_document_with_ai(file_content, is_image, api_key):
-    """
-    Use Google Gemini to analyze either an image (Vision) or raw text (Text).
-    """
     genai.configure(api_key=api_key)
     
     prompt = """
-    You are an advanced Document Intelligence AI. Analyze this input and provide:
+    You are an advanced Document Intelligence AI for Pixel2Word. Analyze this input and provide:
     1. The Type of Document (e.g., Invoice, Contract, Receipt, Letter, Spreadsheet).
     2. The Language of the Document (auto-detected).
     3. Key Entities Extracted (e.g., Total Amount, Date, Names of parties involved, Invoice Number, Structured Data).
@@ -204,16 +218,13 @@ def analyze_document_with_ai(file_content, is_image, api_key):
     """
 
     try:
+        model = genai.GenerativeModel('gemini-3.5-flash')
         if is_image:
-            model = genai.GenerativeModel('gemini-3.5-flash')
             image = Image.open(io.BytesIO(file_content))
             response = model.generate_content([prompt, image])
         else:
-            model = genai.GenerativeModel('gemini-3.5-flash')
-            # The prompt + the extracted raw text
             full_prompt = f"{prompt}\n\nDocument Text:\n{file_content}"
             response = model.generate_content(full_prompt)
-            
         return response.text
     except Exception as e:
         st.error(f"AI Processing Error: {str(e)}")
@@ -237,16 +248,12 @@ def create_excel_doc(text):
     return bio.getvalue()
 
 # -----------------------------------------------------------------------------
-# Main Application
+# Pages
 # -----------------------------------------------------------------------------
-def main():
-    gemini_api_key = os.environ.get("GEMINI_API_KEY")
-
-    # Hero Section
-    st.markdown('<p class="main-title">VisionAI Intelligence</p>', unsafe_allow_html=True)
+def render_home(gemini_api_key):
+    st.markdown('<p class="main-title">Pixel2Word AI Intelligence</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">Turn any physical or digital document into intelligent data instantly with AI.</p>', unsafe_allow_html=True)
     
-    # Visual Onboarding Animation (Lottie)
     lottie_url = "https://assets3.lottiefiles.com/packages/lf20_qp1q7mct.json"
     lottie_json = load_lottieurl(lottie_url)
     if lottie_json:
@@ -268,29 +275,22 @@ def main():
     
     st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
     
-    # Elegant buttons instead of massive camera block
     col_upload, col_camera = st.columns(2)
-    
     with col_upload:
-        # File uploader acts immediately when a file is dropped
         upload_input = st.file_uploader("📂 Upload File", type=["jpg", "jpeg", "png", "webp", "pdf", "docx", "xlsx", "csv", "txt", "pptx"])
         if upload_input:
             uploaded_file = upload_input
-            # Reset camera state if a file is uploaded
             st.session_state.show_camera = False
 
     with col_camera:
-        st.markdown("<br>", unsafe_allow_html=True) # Align with uploader
+        st.markdown("<br>", unsafe_allow_html=True) 
         if st.button("📷 Take Photo"):
             st.session_state.show_camera = not st.session_state.show_camera
             
         if st.session_state.show_camera:
-            # Elegant expander-like container for camera
             camera_input = st.camera_input("Capture Document")
             if camera_input:
                 uploaded_file = camera_input
-                # Optional: Hide camera after capture to clean up UI
-                # st.session_state.show_camera = False
                 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -322,7 +322,6 @@ def main():
             with st.spinner("VisionAI is processing your document..."):
                 extracted_raw_text = ""
                 
-                # Pre-processing for non-images
                 if not is_image:
                     if file_extension == 'pdf':
                         extracted_raw_text = extract_text_from_pdf(file_bytes)
@@ -343,7 +342,6 @@ def main():
                     else:
                         ai_extracted_data = analyze_document_with_ai(extracted_raw_text, False, gemini_api_key)
                 else:
-                    # It's an image, pass bytes directly to Vision model
                     ai_extracted_data = analyze_document_with_ai(file_bytes, True, gemini_api_key)
                 
             if ai_extracted_data:
@@ -358,7 +356,7 @@ def main():
                     st.download_button(
                         label="📄 Download Word",
                         data=word_bytes,
-                        file_name="vision_ai_extraction.docx",
+                        file_name="pixel2word_extraction.docx",
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     )
                 with btn_col2:
@@ -366,17 +364,121 @@ def main():
                     st.download_button(
                         label="📊 Download Excel",
                         data=excel_bytes,
-                        file_name="vision_ai_extraction.xlsx",
+                        file_name="pixel2word_extraction.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Footer
+    # --- SEO Optimized Content ---
+    st.markdown("""
+    <div class="seo-section">
+        <h2>Automate Data Entry with AI Invoice & Document Extraction</h2>
+        <p>
+            Welcome to <strong>Pixel2Word</strong>, your ultimate document intelligence solution. 
+            Whether you are dealing with hundreds of physical receipts, complex PDF invoices, or messy Excel sheets, 
+            our advanced Multimodal AI handles it instantly. 
+        </p>
+        <p>
+            <strong>How it Works:</strong> Simply upload an image, PDF, or Word document. Our Gemini-powered AI scans the contents, 
+            identifies the document type, and autonomously extracts critical entities like amounts, names, and dates. 
+        </p>
+        <p>
+            <strong>The Benefits of Automation:</strong>
+            <ul>
+                <li><strong>Save Hours of Time:</strong> Eliminate tedious manual data entry and human error.</li>
+                <li><strong>Universal Format Support:</strong> From JPGs and PDFs to XLSX and PPTX, Pixel2Word reads everything.</li>
+                <li><strong>Seamless Exports:</strong> Download the perfectly structured and extracted intelligence straight to Microsoft Word or Excel.</li>
+            </ul>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+def render_privacy():
+    st.title("🔒 Privacy Policy")
+    st.markdown("""
+    <div class="glass-container">
+        <h3>Effective Date: 2024</h3>
+        <p>Welcome to <strong>www.pixel2word.com</strong>. Your privacy is critically important to us.</p>
+        
+        <h4>1. Data Processing and Security</h4>
+        <p>We explicitly state that all files, images, and documents uploaded to our platform are processed securely in real-time. 
+        <strong>We DO NOT store, log, or train our models on your sensitive documents.</strong> Once the extraction is complete and the file is returned to you, it is immediately discarded from our active memory.</p>
+        
+        <h4>2. Third-Party API Usage</h4>
+        <p>Our intelligent extraction relies on secure third-party APIs (such as Google Generative AI). Data sent to these APIs is subject to strict enterprise security agreements ensuring confidentiality.</p>
+        
+        <h4>3. Analytics and Cookies</h4>
+        <p>We may use standard web analytics to improve user experience. This data is anonymized and never linked directly to the contents of your uploaded documents.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+def render_terms():
+    st.title("📜 Terms of Service")
+    st.markdown("""
+    <div class="glass-container">
+        <h3>Welcome to Pixel2Word</h3>
+        <p>By accessing or using <strong>www.pixel2word.com</strong>, you agree to comply with and be bound by these Terms of Service.</p>
+        
+        <h4>1. Use of Service</h4>
+        <p>Pixel2Word provides an AI-powered document extraction tool. The service is provided "as is," and while we strive for the highest accuracy, we do not guarantee 100% perfection in OCR or AI text extraction. Users are expected to review extracted data before using it in professional or legal contexts.</p>
+        
+        <h4>2. Acceptable Use</h4>
+        <p>You agree not to use the platform to upload illegal, explicit, or maliciously infected files. We reserve the right to block IP addresses violating this policy.</p>
+        
+        <h4>3. Liability</h4>
+        <p>Pixel2Word shall not be held liable for any damages resulting from data inaccuracies, temporary service outages, or API limitations.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+def render_contact():
+    st.title("✉️ Contact Us")
+    st.markdown("""
+    <div class="glass-container">
+        <p>Have questions, feature requests, or need enterprise support?</p>
+        <p>We would love to hear from you. Please reach out to our dedicated support team.</p>
+        
+        <h4>Support Email</h4>
+        <p>📧 <strong>contact@pixel2word.com</strong></p>
+        
+        <p><em>We aim to respond to all inquiries within 24-48 business hours.</em></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# Main Application Router
+# -----------------------------------------------------------------------------
+def main():
+    gemini_api_key = os.environ.get("GEMINI_API_KEY")
+
+    with st.sidebar:
+        st.image("https://cdn-icons-png.flaticon.com/512/3752/3752762.png", width=60)
+        st.title("Navigation")
+        
+        page = st.radio("Go to:", [
+            "🏠 Home / App", 
+            "🔒 Privacy Policy", 
+            "📜 Terms of Service", 
+            "✉️ Contact Us"
+        ])
+        
+        st.markdown("---")
+        st.markdown("**Pixel2Word SaaS**")
+        st.info("Automate your document intelligence.")
+
+    if page == "🏠 Home / App":
+        render_home(gemini_api_key)
+    elif page == "🔒 Privacy Policy":
+        render_privacy()
+    elif page == "📜 Terms of Service":
+        render_terms()
+    elif page == "✉️ Contact Us":
+        render_contact()
+
+    # Shared Footer across all pages
     st.markdown("""
     <div class="footer">
-        <strong>VisionAI SaaS</strong><br>
+        <strong>© 2024 Pixel2Word. All rights reserved.</strong><br>
         Transforming physical documents and digital files into actionable data instantly. 
-        We save professionals hours of manual data entry through cutting-edge multimodal AI.
     </div>
     """, unsafe_allow_html=True)
 
