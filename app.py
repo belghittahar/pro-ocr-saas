@@ -139,6 +139,19 @@ h1, h2, h3, h4 {
     border-color: #3b82f6 !important;
     background-color: #374151 !important;
 }
+/* Specifically target the 'Browse files' button inside the dropzone */
+[data-testid="stFileUploadDropzone"] button {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px !important;
+    padding: 0.5rem 1rem !important;
+    font-weight: 600 !important;
+}
+[data-testid="stFileUploadDropzone"] button:hover {
+    background-color: #f3f4f6 !important;
+    border-color: #9ca3af !important;
+}
 
 /* Footer */
 .premium-footer {
