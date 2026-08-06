@@ -25,172 +25,42 @@ if "show_camera" not in st.session_state:
     st.session_state.show_camera = False
 
 # -----------------------------------------------------------------------------
-# Custom CSS (Enterprise Light Theme - Stripe/Vercel Aesthetic)
+# Clean Native Streamlit Layout 
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
-/* Base Theme: Clean White & Light Gray */
-.stApp {
-    background-color: #fafafa;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    color: #111827;
-}
-
 /* Hide default footer, but KEEP header/hamburger menu */
 footer {visibility: hidden;}
 
-/* Enterprise Container */
-.glass-container {
-    background-color: #ffffff;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-    padding: 2rem;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-    margin-bottom: 2rem;
-}
-
-/* Typography */
-h1, h2, h3, h4 {
-    color: #111827 !important;
-    font-weight: 700;
-}
-
+/* Minimal spacing adjustments */
 .main-title {
-    color: #111827;
     text-align: center;
     font-size: 2.5rem !important;
     font-weight: 800;
-    letter-spacing: -0.025em;
     margin-bottom: 0.5rem;
 }
 
 .sub-title {
     text-align: center;
-    color: #6b7280;
     font-size: 1.1rem;
-    font-weight: 400;
     margin-bottom: 3rem;
-}
-
-/* Premium Buttons */
-.stButton > button {
-    background-color: #ffffff;
-    color: #374151 !important;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 0.95rem;
-    font-weight: 500;
-    padding: 0.5rem 1rem;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    width: 100%;
-}
-.stButton > button:hover {
-    background-color: #f9fafb;
-    border-color: #9ca3af;
-    color: #111827 !important;
-}
-
-/* Call to Action Buttons (Download, Action) */
-.stDownloadButton > button, div[data-testid="stButton"] > button.primary-btn {
-    background-color: #000000;
-    color: #ffffff !important;
-    border: none;
-    border-radius: 6px;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    width: 100%;
-}
-.stDownloadButton > button:hover, div[data-testid="stButton"] > button.primary-btn:hover {
-    background-color: #374151;
-    color: #ffffff !important;
-}
-
-/* High-Contrast Text Area for Analysis Results */
-.stTextArea textarea {
-    background-color: #ffffff !important;
-    color: #111827 !important;
-    border: 1px solid #d1d5db !important;
-    border-radius: 6px;
-    padding: 1rem;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 0.95rem;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-.stTextArea textarea:focus {
-    border-color: #3b82f6 !important;
-    box-shadow: 0 0 0 1px #3b82f6 !important;
-}
-
-/* File Uploader - Force High Contrast (Fix for unreadable text) */
-[data-testid="stFileUploadDropzone"] {
-    background-color: #1f2937 !important;
-    border: 2px dashed #9ca3af !important;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-}
-[data-testid="stFileUploadDropzone"] div {
-    color: #ffffff !important;
-}
-[data-testid="stFileUploadDropzone"] small {
-    color: #d1d5db !important;
-}
-[data-testid="stFileUploadDropzone"]:hover {
-    border-color: #3b82f6 !important;
-    background-color: #374151 !important;
-}
-/* Specifically target the 'Browse files' button inside the dropzone */
-[data-testid="stFileUploadDropzone"] button {
-    background-color: #ffffff !important;
-    color: #111827 !important;
-    border: 1px solid #d1d5db !important;
-    border-radius: 6px !important;
-    padding: 0.5rem 1rem !important;
-    font-weight: 600 !important;
-}
-[data-testid="stFileUploadDropzone"] button:hover {
-    background-color: #f3f4f6 !important;
-    border-color: #9ca3af !important;
+    opacity: 0.8;
 }
 
 /* Footer */
 .premium-footer {
     text-align: center;
     padding: 2rem;
-    color: #6b7280;
     font-size: 0.85rem;
     margin-top: 4rem;
-    border-top: 1px solid #e5e7eb;
+    opacity: 0.7;
 }
 
 /* Subpages Container */
 .page-container {
     max-width: 800px;
     margin: 0 auto;
-    background: #ffffff;
-    padding: 3rem;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-    border: 1px solid #e5e7eb;
-}
-.page-container h2 {
-    color: #111827;
-    margin-bottom: 1.5rem;
-    font-weight: 700;
-    border-bottom: 1px solid #e5e7eb;
-    padding-bottom: 0.5rem;
-}
-.page-container h3 {
-    color: #374151;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
-    font-size: 1.2rem;
-    font-weight: 600;
-}
-.page-container p {
-    color: #4b5563;
-    line-height: 1.6;
-    margin-bottom: 1.2rem;
+    padding: 2rem;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -309,7 +179,6 @@ def render_image_to_text(gemini_api_key):
         st.warning("⚠️ Gemini API Key is missing. Please set the 'GEMINI_API_KEY' environment variable.")
         st.stop()
 
-    st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
     st.markdown("### Upload Image")
     
     uploaded_file = None
@@ -333,10 +202,9 @@ def render_image_to_text(gemini_api_key):
             if camera_input:
                 uploaded_file = camera_input
                 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("---")
 
     if uploaded_file is not None:
-        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
         st.markdown("### Analysis Results")
         
         file_bytes = uploaded_file.getvalue()
@@ -367,7 +235,6 @@ def render_image_to_text(gemini_api_key):
                 with btn_col2:
                     excel_bytes = create_excel_doc(edited_text)
                     st.download_button("📊 Download Excel", data=excel_bytes, file_name="pixel2word_ocr.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        st.markdown("</div>", unsafe_allow_html=True)
 
 def render_document_to_text(gemini_api_key):
     st.markdown('<p class="main-title">Document to Text</p>', unsafe_allow_html=True)
@@ -377,13 +244,11 @@ def render_document_to_text(gemini_api_key):
         st.warning("⚠️ Gemini API Key is missing. Please set the 'GEMINI_API_KEY' environment variable.")
         st.stop()
 
-    st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
     st.markdown("### Upload Document")
     uploaded_file = st.file_uploader("Upload Document (PDF, DOCX, XLSX, CSV, PPTX, TXT)", type=["pdf", "docx", "xlsx", "csv", "txt", "pptx"])
-    st.markdown("</div>", unsafe_allow_html=True)
 
     if uploaded_file is not None:
-        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
+        st.markdown("---")
         st.markdown("### Analysis Results")
         
         file_bytes = uploaded_file.getvalue()
@@ -425,23 +290,19 @@ def render_document_to_text(gemini_api_key):
             with btn_col2:
                 excel_bytes = create_excel_doc(edited_text)
                 st.download_button("📊 Download Excel", data=excel_bytes, file_name="pixel2word_doc.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        st.markdown("</div>", unsafe_allow_html=True)
 
 def render_audio_to_text():
     st.markdown('<p class="main-title">Audio to Text</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">Dictate notes instantly using your microphone.</p>', unsafe_allow_html=True)
 
-    st.markdown("<div class='glass-container' style='text-align: center;'>", unsafe_allow_html=True)
     st.markdown("### 🎙️ Voice Dictation")
-    st.markdown("<p style='color:#6b7280;'>Click the button below to start recording. Speak clearly into your microphone.</p>", unsafe_allow_html=True)
+    st.markdown("Click the button below to start recording. Speak clearly into your microphone.")
     
     # We place the mic recorder cleanly in the center
     dictated_text = speech_to_text(language='en', use_container_width=True, just_once=True, key='STT_main')
     
-    st.markdown("</div>", unsafe_allow_html=True)
-
     if dictated_text:
-        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
+        st.markdown("---")
         st.success("Audio transcribed successfully!")
         edited_text = st.text_area("Transcription", value=dictated_text, height=200, label_visibility="collapsed")
         
@@ -452,7 +313,6 @@ def render_audio_to_text():
             st.download_button("📄 Download Word", data=word_bytes, file_name="pixel2word_audio.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         with btn_col2:
             st.download_button("📝 Download Text", data=edited_text, file_name="pixel2word_audio.txt", mime="text/plain")
-        st.markdown("</div>", unsafe_allow_html=True)
 
 def render_privacy():
     # Removed whitespace indentation to prevent rendering as code blocks
@@ -514,7 +374,7 @@ def main():
     gemini_api_key = os.environ.get("GEMINI_API_KEY")
 
     with st.sidebar:
-        st.markdown("<h2 style='text-align: center; color:#111827; margin-bottom: 2rem;'>Pixel2Word</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; margin-bottom: 2rem;'>Pixel2Word</h2>", unsafe_allow_html=True)
         
         # Premium Navigation using option_menu
         page = option_menu(
@@ -525,18 +385,15 @@ def main():
             default_index=0,
             styles={
                 "container": {"padding": "0!important", "background-color": "transparent", "border": "none"},
-                "icon": {"color": "#6b7280", "font-size": "1.1rem"},
+                "icon": {"font-size": "1.1rem"},
                 "nav-link": {
                     "font-size": "0.95rem", 
                     "text-align": "left", 
                     "margin": "0.2rem 0", 
-                    "color": "#374151",
                     "border-radius": "6px",
                     "font-weight": "500"
                 },
                 "nav-link-selected": {
-                    "background-color": "#f3f4f6", 
-                    "color": "#111827",
                     "font-weight": "600"
                 },
             }
