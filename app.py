@@ -1,4 +1,4 @@
-mport streamlit as st
+import streamlit as st
 from streamlit_option_menu import option_menu
 from streamlit_mic_recorder import speech_to_text
 import io
