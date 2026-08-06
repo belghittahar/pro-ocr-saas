@@ -1,4 +1,4 @@
-import streamlit as st
+mport streamlit as st
 from streamlit_option_menu import option_menu
 from streamlit_mic_recorder import speech_to_text
 import io
@@ -122,19 +122,22 @@ h1, h2, h3, h4 {
     box-shadow: 0 0 0 1px #3b82f6 !important;
 }
 
-/* File Uploader - Force High Contrast */
+/* File Uploader - Force High Contrast (Fix for unreadable text) */
 [data-testid="stFileUploadDropzone"] {
-    background-color: #ffffff;
-    border: 1px dashed #d1d5db;
+    background-color: #1f2937 !important;
+    border: 2px dashed #9ca3af !important;
     border-radius: 6px;
     transition: all 0.2s ease;
 }
 [data-testid="stFileUploadDropzone"] div {
-    color: #111827 !important;
+    color: #ffffff !important;
+}
+[data-testid="stFileUploadDropzone"] small {
+    color: #d1d5db !important;
 }
 [data-testid="stFileUploadDropzone"]:hover {
-    border-color: #6b7280;
-    background-color: #f9fafb;
+    border-color: #3b82f6 !important;
+    background-color: #374151 !important;
 }
 
 /* Footer */
