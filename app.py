@@ -1,10 +1,8 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from streamlit_option_menu import option_menu
 from streamlit_mic_recorder import speech_to_text
 import io
 import os
-import base64
 from PIL import Image
 import docx
 import pandas as pd
@@ -26,142 +24,57 @@ st.set_page_config(
 if "show_camera" not in st.session_state:
     st.session_state.show_camera = False
 
-# Declare the native camera component
-def native_camera(key=None):
-    component_func = components.declare_component("native_camera", path="./native_camera")
-    return component_func(key=key, default=None)
-
 # -----------------------------------------------------------------------------
-# Premium B2B Dark Theme CSS
+# Clean Native Streamlit Layout 
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
-/* Hide default footer */
+/* Hide default footer, but KEEP header/hamburger menu */
 footer {visibility: hidden;}
 
-/* Enforce Inter font globally */
-html, body, [class*="css"]  {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-}
-
-/* Glassmorphism/Premium Dark Container */
-.glass-container {
-    background-color: #1A1F29;
-    border-radius: 12px;
-    border: 1px solid #2D3748;
-    padding: 2.5rem;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    margin-bottom: 2rem;
-}
-
-/* Headings */
-h1, h2, h3, h4 {
-    font-weight: 700 !important;
-    color: #FAFAFA !important;
-}
-
+/* Minimal spacing adjustments */
 .main-title {
-    color: #FAFAFA;
     text-align: center;
-    font-size: 3rem !important;
-    font-weight: 800 !important;
-    letter-spacing: -1px;
+    font-size: 2.5rem !important;
+    font-weight: 800;
     margin-bottom: 0.5rem;
 }
 
 .sub-title {
     text-align: center;
-    color: #A0AEC0;
-    font-size: 1.2rem;
-    font-weight: 400;
+    font-size: 1.1rem;
     margin-bottom: 3rem;
-}
-
-/* Universal Button Styling (Download Buttons) */
-.stDownloadButton > button {
-    background-color: #2D3748 !important;
-    color: #FAFAFA !important;
-    border: 1px solid #4A5568 !important;
-    border-radius: 8px !important;
-    font-weight: 500 !important;
-    padding: 0.6rem 1.2rem !important;
-    transition: all 0.2s ease !important;
-    width: 100% !important;
-}
-.stDownloadButton > button:hover {
-    background-color: #4F8BFF !important;
-    border-color: #4F8BFF !important;
-}
-
-/* File Uploader Customization */
-[data-testid="stFileUploadDropzone"] {
-    background-color: #1A1F29 !important;
-    border: 2px dashed #4A5568 !important;
-    border-radius: 12px !important;
-    transition: all 0.2s ease !important;
-}
-[data-testid="stFileUploadDropzone"] div {
-    color: #E2E8F0 !important;
-}
-[data-testid="stFileUploadDropzone"] small {
-    color: #A0AEC0 !important;
-}
-[data-testid="stFileUploadDropzone"]:hover {
-    border-color: #4F8BFF !important;
-    background-color: #2A313E !important;
-}
-/* Specifically target the 'Browse files' button inside the dropzone */
-[data-testid="stFileUploadDropzone"] button {
-    background-color: #2D3748 !important;
-    color: #FAFAFA !important;
-    border: 1px solid #4A5568 !important;
-    border-radius: 8px !important;
-    padding: 0.5rem 1rem !important;
-    font-weight: 600 !important;
-}
-[data-testid="stFileUploadDropzone"] button:hover {
-    background-color: #4F8BFF !important;
-    border-color: #4F8BFF !important;
-}
-
-/* Text Area for Analysis Results */
-.stTextArea textarea {
-    background-color: #1A1F29 !important;
-    color: #FAFAFA !important;
-    border: 1px solid #4A5568 !important;
-    border-radius: 8px !important;
-    padding: 1rem !important;
-    font-family: 'Courier New', Courier, monospace !important;
-    font-size: 0.95rem !important;
-}
-.stTextArea textarea:focus {
-    border-color: #4F8BFF !important;
-    box-shadow: 0 0 0 1px #4F8BFF !important;
+    opacity: 0.8;
 }
 
 /* Footer */
 .premium-footer {
     text-align: center;
     padding: 2rem;
-    color: #A0AEC0;
     font-size: 0.85rem;
     margin-top: 4rem;
-    border-top: 1px solid #2D3748;
+    opacity: 0.7;
 }
 
 /* Subpages Container */
 .page-container {
     max-width: 800px;
     margin: 0 auto;
-    background: #1A1F29;
-    padding: 3rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    border: 1px solid #2D3748;
+    padding: 2rem;
 }
-.page-container p, .page-container li {
-    color: #E2E8F0;
-    line-height: 1.6;
+
+/* Specifically target the 'Browse files' button inside the dropzone */
+[data-testid="stFileUploadDropzone"] button {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px !important;
+    padding: 0.5rem 1rem !important;
+    font-weight: 600 !important;
+}
+[data-testid="stFileUploadDropzone"] button:hover {
+    background-color: #f3f4f6 !important;
+    border-color: #9ca3af !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -230,13 +143,25 @@ def analyze_document_with_ai(file_content, is_image, api_key):
     genai.configure(api_key=api_key)
     
     prompt = """
-    You are an advanced Document Intelligence AI for Pixel2Word. Analyze this input and provide:
-    1. The Type of Document (e.g., Invoice, Contract, Receipt, Letter, Spreadsheet).
-    2. The Language of the Document (auto-detected).
-    3. Key Entities Extracted (e.g., Total Amount, Date, Names of parties involved, Invoice Number, Structured Data).
-    4. The Full Extracted Text.
-    
-    Format your response clearly using Markdown headings (e.g. ### Document Type, ### Key Entities, ### Full Text).
+    You are a strict, highly precise B2B Document Intelligence API. Your ONLY objective is to extract and structure data exactly as it appears in the document.
+
+    STRICT RULES:
+    1. ZERO CONVERSATIONAL FILLER: Return ONLY the extracted text and structured data. Do not include greetings, explanations, or concluding remarks like "Here is the text".
+    2. PRESERVE SPATIAL LAYOUT & TABLES: You must meticulously maintain the original formatting, alignment, and line breaks. If you detect a table, invoice, or structured list, you MUST output it as a cleanly formatted Markdown table or perfectly spaced text that visually mirrors the original image/document structure.
+    3. STRICT FIDELITY: Transcribe exactly what is written. Do NOT hallucinate, guess, infer, or add any information that is not explicitly visible in the document.
+
+    REQUIRED OUTPUT FORMAT:
+    ### Document Type
+    (State the type, e.g., Invoice, Contract, Receipt, Spreadsheet)
+
+    ### Language
+    (State the auto-detected language)
+
+    ### Key Entities
+    (List critical entities found, e.g., Total Amount, Date, Invoice Number)
+
+    ### Full Extracted Text
+    (Provide the exact transcribed text and markdown tables here, maintaining structural layout)
     """
 
     try:
@@ -280,49 +205,43 @@ def render_image_to_text(gemini_api_key):
         st.warning("⚠️ Gemini API Key is missing. Please set the 'GEMINI_API_KEY' environment variable.")
         st.stop()
 
-    st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
-    st.markdown("### Provide Document")
+    st.markdown("### Upload Image")
     
     uploaded_file = None
-    file_bytes = None
     
     col_upload, col_spacer, col_camera = st.columns([1, 0.1, 1])
     with col_upload:
-        upload_input = st.file_uploader("Upload Image (JPG, PNG)", type=["jpg", "jpeg", "png", "webp"], label_visibility="collapsed")
+        upload_input = st.file_uploader("Upload Image (JPG, PNG, WEBP)", type=["jpg", "jpeg", "png", "webp"], label_visibility="collapsed")
         if upload_input:
             uploaded_file = upload_input
-            file_bytes = uploaded_file.getvalue()
+            st.session_state.show_camera = False
 
     with col_camera:
         st.write("") 
         st.write("")
-        # Use our custom native camera component!
-        camera_data_base64 = native_camera(key="native_cam")
-        if camera_data_base64:
-            # The component returns "data:image/jpeg;base64,/9j/4AAQSkZJ..."
-            # We strip the prefix and decode
-            b64_str = camera_data_base64.split(",")[1]
-            file_bytes = base64.b64decode(b64_str)
-            uploaded_file = "camera_capture.jpg"
+        if st.button("📷 Take Photo", key="btn_camera"):
+            st.session_state.show_camera = not st.session_state.show_camera
+            
+        if st.session_state.show_camera:
+            st.markdown("<br>", unsafe_allow_html=True)
+            camera_input = st.camera_input("Capture Document", label_visibility="collapsed")
+            if camera_input:
+                uploaded_file = camera_input
                 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("---")
 
     if uploaded_file is not None:
-        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
         st.markdown("### Analysis Results")
+        
+        file_bytes = uploaded_file.getvalue()
         
         res_col1, res_col2 = st.columns([1, 1.5], gap="medium")
         
         with res_col1:
             try:
-                if isinstance(uploaded_file, str):
-                    # It's our camera capture bytes
-                    image = Image.open(io.BytesIO(file_bytes))
-                else:
-                    # It's an uploaded file object
-                    image = Image.open(uploaded_file)
-                st.image(image, caption="Source Document", use_container_width=True, clamp=True)
-            except Exception as e:
+                image = Image.open(uploaded_file)
+                st.image(image, caption="Source Image", use_container_width=True, clamp=True)
+            except:
                 st.warning("Preview not available.")
             
         with res_col2:
@@ -333,6 +252,13 @@ def render_image_to_text(gemini_api_key):
                 st.success("Analysis Complete")
                 edited_text = st.text_area("Extracted Intelligence", value=ai_extracted_data, height=400, label_visibility="collapsed")
                 
+                # --- Voice-to-Text Feature ---
+                st.markdown("<p style='font-size: 0.9rem; margin-top: 0.5rem;'>🎤 Click to dictate additional notes:</p>", unsafe_allow_html=True)
+                dictated_text = speech_to_text(language='en', use_container_width=True, just_once=True, key='STT_img')
+                if dictated_text:
+                    edited_text = edited_text + "\n\n### Dictated Notes\n" + dictated_text
+                    st.success("Notes appended!")
+
                 st.markdown("<br><b>Export Data</b>", unsafe_allow_html=True)
                 btn_col1, btn_col2 = st.columns(2)
                 
@@ -342,7 +268,6 @@ def render_image_to_text(gemini_api_key):
                 with btn_col2:
                     excel_bytes = create_excel_doc(edited_text)
                     st.download_button("📊 Download Excel", data=excel_bytes, file_name="pixel2word_ocr.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        st.markdown("</div>", unsafe_allow_html=True)
 
 def render_document_to_text(gemini_api_key):
     st.markdown('<p class="main-title">Document to Text</p>', unsafe_allow_html=True)
@@ -352,13 +277,11 @@ def render_document_to_text(gemini_api_key):
         st.warning("⚠️ Gemini API Key is missing. Please set the 'GEMINI_API_KEY' environment variable.")
         st.stop()
 
-    st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
     st.markdown("### Upload Document")
     uploaded_file = st.file_uploader("Upload Document (PDF, DOCX, XLSX, CSV, PPTX, TXT)", type=["pdf", "docx", "xlsx", "csv", "txt", "pptx"])
-    st.markdown("</div>", unsafe_allow_html=True)
 
     if uploaded_file is not None:
-        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
+        st.markdown("---")
         st.markdown("### Analysis Results")
         
         file_bytes = uploaded_file.getvalue()
@@ -391,6 +314,13 @@ def render_document_to_text(gemini_api_key):
             st.success("Analysis Complete")
             edited_text = st.text_area("Extracted Intelligence", value=ai_extracted_data, height=400, label_visibility="collapsed")
             
+            # --- Voice-to-Text Feature ---
+            st.markdown("<p style='font-size: 0.9rem; margin-top: 0.5rem;'>🎤 Click to dictate additional notes:</p>", unsafe_allow_html=True)
+            dictated_text = speech_to_text(language='en', use_container_width=True, just_once=True, key='STT_doc')
+            if dictated_text:
+                edited_text = edited_text + "\n\n### Dictated Notes\n" + dictated_text
+                st.success("Notes appended!")
+
             st.markdown("<br><b>Export Data</b>", unsafe_allow_html=True)
             btn_col1, btn_col2 = st.columns(2)
             
@@ -400,23 +330,19 @@ def render_document_to_text(gemini_api_key):
             with btn_col2:
                 excel_bytes = create_excel_doc(edited_text)
                 st.download_button("📊 Download Excel", data=excel_bytes, file_name="pixel2word_doc.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        st.markdown("</div>", unsafe_allow_html=True)
 
 def render_audio_to_text():
     st.markdown('<p class="main-title">Audio to Text</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">Dictate notes instantly using your microphone.</p>', unsafe_allow_html=True)
 
-    st.markdown("<div class='glass-container' style='text-align: center;'>", unsafe_allow_html=True)
     st.markdown("### 🎙️ Voice Dictation")
-    st.markdown("<p style='color:#A0AEC0;'>Click the button below to start recording. Speak clearly into your microphone.</p>", unsafe_allow_html=True)
+    st.markdown("Click the button below to start recording. Speak clearly into your microphone.")
     
     # We place the mic recorder cleanly in the center
     dictated_text = speech_to_text(language='en', use_container_width=True, just_once=True, key='STT_main')
     
-    st.markdown("</div>", unsafe_allow_html=True)
-
     if dictated_text:
-        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
+        st.markdown("---")
         st.success("Audio transcribed successfully!")
         edited_text = st.text_area("Transcription", value=dictated_text, height=200, label_visibility="collapsed")
         
@@ -427,9 +353,9 @@ def render_audio_to_text():
             st.download_button("📄 Download Word", data=word_bytes, file_name="pixel2word_audio.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         with btn_col2:
             st.download_button("📝 Download Text", data=edited_text, file_name="pixel2word_audio.txt", mime="text/plain")
-        st.markdown("</div>", unsafe_allow_html=True)
 
 def render_privacy():
+    # Removed whitespace indentation to prevent rendering as code blocks
     st.markdown("""
 <div class="page-container">
 <h2>Privacy Policy</h2>
@@ -449,6 +375,7 @@ def render_privacy():
 """, unsafe_allow_html=True)
 
 def render_terms():
+    # Removed whitespace indentation to prevent rendering as code blocks
     st.markdown("""
 <div class="page-container">
 <h2>Terms of Service</h2>
@@ -466,6 +393,7 @@ def render_terms():
 """, unsafe_allow_html=True)
 
 def render_contact():
+    # Removed whitespace indentation to prevent rendering as code blocks
     st.markdown("""
 <div class="page-container">
 <h2>Contact Support</h2>
@@ -486,7 +414,7 @@ def main():
     gemini_api_key = os.environ.get("GEMINI_API_KEY")
 
     with st.sidebar:
-        st.markdown("<h2 style='text-align: center; color:#FAFAFA; margin-bottom: 2rem;'>Pixel2Word</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; margin-bottom: 2rem;'>Pixel2Word</h2>", unsafe_allow_html=True)
         
         # Premium Navigation using option_menu
         page = option_menu(
@@ -497,18 +425,15 @@ def main():
             default_index=0,
             styles={
                 "container": {"padding": "0!important", "background-color": "transparent", "border": "none"},
-                "icon": {"color": "#A0AEC0", "font-size": "1.1rem"},
+                "icon": {"font-size": "1.1rem"},
                 "nav-link": {
                     "font-size": "0.95rem", 
                     "text-align": "left", 
                     "margin": "0.2rem 0", 
-                    "color": "#E2E8F0",
                     "border-radius": "6px",
                     "font-weight": "500"
                 },
                 "nav-link-selected": {
-                    "background-color": "#4F8BFF", 
-                    "color": "#FAFAFA",
                     "font-weight": "600"
                 },
             }
