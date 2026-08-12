@@ -13,6 +13,31 @@ import pdfplumber
 from pptx import Presentation
 
 # -----------------------------------------------------------------------------
+# AdSense Hard Patch (Run before Streamlit loads)
+# -----------------------------------------------------------------------------
+def inject_adsense_hard_patch():
+    try:
+        # Locate Streamlit's internal index.html file
+        streamlit_dir = os.path.dirname(st.__file__)
+        index_path = os.path.join(streamlit_dir, 'static', 'index.html')
+        
+        with open(index_path, 'r', encoding='utf-8') as f:
+            html = f.read()
+            
+        adsense_code = '<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3336794319990692" crossorigin="anonymous"></script>'
+        
+        # Inject only if it hasn't been injected yet
+        if adsense_code not in html:
+            patched_html = html.replace('<head>', f'<head>\\n    {adsense_code}')
+            with open(index_path, 'w', encoding='utf-8') as f:
+                f.write(patched_html)
+    except Exception as e:
+        pass # Fail silently if permissions block it, to not crash the app
+
+# Run the patch immediately
+inject_adsense_hard_patch()
+
+# -----------------------------------------------------------------------------
 # Configuration & State
 # -----------------------------------------------------------------------------
 st.set_page_config(
@@ -24,20 +49,6 @@ st.set_page_config(
 
 if "show_camera" not in st.session_state:
     st.session_state.show_camera = False
-
-# -----------------------------------------------------------------------------
-# AdSense Injection
-# -----------------------------------------------------------------------------
-adsense_injection = """
-<script>
-    const adsenseScript = window.parent.document.createElement('script');
-    adsenseScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3336794319990692';
-    adsenseScript.async = true;
-    adsenseScript.crossOrigin = 'anonymous';
-    window.parent.document.head.appendChild(adsenseScript);
-</script>
-"""
-components.html(adsense_injection, width=0, height=0)
 
 # -----------------------------------------------------------------------------
 # Clean Native Streamlit Layout 
@@ -167,7 +178,7 @@ def analyze_document_with_ai(file_content, is_image, api_key):
             image = Image.open(io.BytesIO(file_content))
             response = model.generate_content([prompt, image])
         else:
-            full_prompt = f"{prompt}\n\nDocument Text:\n{file_content}"
+            full_prompt = f"{prompt}\\n\\nDocument Text:\\n{file_content}"
             response = model.generate_content(full_prompt)
         return response.text
     except Exception as e:
@@ -182,7 +193,7 @@ def create_word_doc(text):
     return bio.getvalue()
 
 def create_excel_doc(text):
-    lines = text.split('\n')
+    lines = text.split('\\n')
     data = [[line] for line in lines if line.strip()]
     df = pd.DataFrame(data, columns=["Extracted Content"])
     
@@ -253,7 +264,7 @@ def render_image_to_text(gemini_api_key):
                 st.markdown("<p style='font-size: 0.9rem; margin-top: 0.5rem;'>🎤 Click to dictate additional notes:</p>", unsafe_allow_html=True)
                 dictated_text = speech_to_text(language='en', use_container_width=True, just_once=True, key='STT_img')
                 if dictated_text:
-                    edited_text = edited_text + "\n\n### Dictated Notes\n" + dictated_text
+                    edited_text = edited_text + "\\n\\n### Dictated Notes\\n" + dictated_text
                     st.success("Notes appended!")
 
                 st.markdown("<br><b>Export Data</b>", unsafe_allow_html=True)
@@ -315,7 +326,7 @@ def render_document_to_text(gemini_api_key):
             st.markdown("<p style='font-size: 0.9rem; margin-top: 0.5rem;'>🎤 Click to dictate additional notes:</p>", unsafe_allow_html=True)
             dictated_text = speech_to_text(language='en', use_container_width=True, just_once=True, key='STT_doc')
             if dictated_text:
-                edited_text = edited_text + "\n\n### Dictated Notes\n" + dictated_text
+                edited_text = edited_text + "\\n\\n### Dictated Notes\\n" + dictated_text
                 st.success("Notes appended!")
 
             st.markdown("<br><b>Export Data</b>", unsafe_allow_html=True)
