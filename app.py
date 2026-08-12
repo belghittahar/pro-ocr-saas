@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from streamlit_option_menu import option_menu
 from streamlit_mic_recorder import speech_to_text
 import io
@@ -23,6 +24,20 @@ st.set_page_config(
 
 if "show_camera" not in st.session_state:
     st.session_state.show_camera = False
+
+# -----------------------------------------------------------------------------
+# AdSense Injection
+# -----------------------------------------------------------------------------
+adsense_injection = """
+<script>
+    const adsenseScript = window.parent.document.createElement('script');
+    adsenseScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3336794319990692';
+    adsenseScript.async = true;
+    adsenseScript.crossOrigin = 'anonymous';
+    window.parent.document.head.appendChild(adsenseScript);
+</script>
+"""
+components.html(adsense_injection, width=0, height=0)
 
 # -----------------------------------------------------------------------------
 # Clean Native Streamlit Layout 
@@ -396,7 +411,7 @@ def main():
     gemini_api_key = os.environ.get("GEMINI_API_KEY")
 
     with st.sidebar:
-        st.markdown("<h2 style='text-align: center; margin-bottom: 2rem;'>Pixel2Word</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color:#111827; margin-bottom: 2rem;'>Pixel2Word</h2>", unsafe_allow_html=True)
         
         # Premium Navigation using option_menu
         page = option_menu(
@@ -407,15 +422,18 @@ def main():
             default_index=0,
             styles={
                 "container": {"padding": "0!important", "background-color": "transparent", "border": "none"},
-                "icon": {"font-size": "1.1rem"},
+                "icon": {"color": "#6b7280", "font-size": "1.1rem"},
                 "nav-link": {
                     "font-size": "0.95rem", 
                     "text-align": "left", 
                     "margin": "0.2rem 0", 
+                    "color": "#374151",
                     "border-radius": "6px",
                     "font-weight": "500"
                 },
                 "nav-link-selected": {
+                    "background-color": "#f3f4f6", 
+                    "color": "#111827",
                     "font-weight": "600"
                 },
             }
