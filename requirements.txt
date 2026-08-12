@@ -11,3 +11,4 @@ pdfplumber
 python-pptx
 streamlit-option-menu
 streamlit-mic-recorder
+tornado
